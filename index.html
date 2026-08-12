@@ -495,7 +495,7 @@ $("googleBtn").onclick=()=>{
 $("logoutBtn").onclick=()=>{ state={user:null,tid:firstSubId(),month:"2026-08",menuEdit:false,rowEdit:false,dataEdit:false,snap:null,open:{c_sky:true}}; $("app").classList.add("hidden"); $("login").classList.remove("hidden"); };
 
 /* ===================== SIDEBAR NAV ===================== */
-const EDIT_PW="0000"; /* 사이드바 편집 비밀번호 (배포 시 변경) */
+const EDIT_PW="005418!!"; /* 사이드바 편집 비밀번호 */
 $("menuEditLink").onclick=()=>{
   if(state.menuEdit){ state.menuEdit=false; $("menuEditLink").textContent="편집"; buildNav(); cloudSave(); return; }
   if(!state.user||!state.user.isAdmin){ toast("관리자만 편집할 수 있어요"); return; }
