@@ -1897,9 +1897,9 @@ button.lk-it:hover{background:var(--n1)}
     <div class="fixrow" style="margin-top:12px">
       <div>
         <b>예전 구글 시트 데이터 가져오기</b>
-        <span>Apps Script 의 <b>exportForSupabase</b> 로 만든 파일(policy_export_….json)을 고르면 정책 · 이력 · 등급 · 정책지 · 메모 · 명단을 그대로 옮깁니다. <b>지금 저장된 내용은 모두 바뀝니다.</b></span>
+        <span>Apps Script 의 <b>exportForSupabase</b> 실행 뒤 생긴 <b>EXPORT_수파베이스</b> 탭을 .csv 로 내려받아 고르면 정책 · 이력 · 등급 · 정책지 · 메모 · 명단을 그대로 옮깁니다. <b>지금 저장된 내용은 모두 바뀝니다.</b></span>
       </div>
-      <input type="file" id="importFile" accept=".json,application/json" class="hidden">
+      <input type="file" id="importFile" accept=".csv,.json,text/csv,application/json" class="hidden">
       <button class="btn btn-o sm" id="importBtn">파일 고르기</button>
     </div>
   </div>
@@ -5620,13 +5620,40 @@ function renderAllow(){
     ALLOW.splice(i,1); renderAllow();});
 }
 /* ===================== 예전 시트 데이터 가져오기 (관리자 · 한 번) ===================== */
+/* 내보내기 파일 읽기 — .json 그대로, 또는 'EXPORT_수파베이스' 탭을 내려받은 .csv
+   (A1 = "POLICY_EXPORT|v1|줄수|글자수", A2~ = 'P'+조각) */
+function csvCol0(t){
+  const rows=[]; let i=0, n=t.length;
+  while(i<n){
+    let cell="";
+    if(t[i]==='"'){ i++;
+      while(i<n){ if(t[i]==='"'){ if(t[i+1]==='"'){ cell+='"'; i+=2; } else { i++; break; } } else cell+=t[i++]; } }
+    else { while(i<n&&t[i]!==","&&t[i]!=="\n"&&t[i]!=="\r") cell+=t[i++]; }
+    rows.push(cell);
+    while(i<n&&t[i]!=="\n") i++;          /* 첫 칸만 씁니다 — 줄 끝까지 건너뜀 */
+    i++;
+  }
+  return rows;
+}
+function readExport(t){
+  t=String(t||"").replace(/^\uFEFF/,"");
+  if(/^\s*\{/.test(t)) return JSON.parse(t);
+  const rows=csvCol0(t), hd=String(rows[0]||"").split("|");
+  if(hd[0]!=="POLICY_EXPORT") throw new Error("첫 칸이 POLICY_EXPORT 가 아닙니다");
+  const cnt=+hd[2], len=+hd[3];
+  const parts=rows.slice(1,1+cnt);
+  if(parts.length!==cnt||parts.some(x=>x.charAt(0)!=="P")) throw new Error("조각 수가 맞지 않습니다 ("+parts.length+"/"+cnt+")");
+  const json=parts.map(x=>x.slice(1)).join("");
+  if(json.length!==len) throw new Error("글자 수가 맞지 않습니다 ("+json.length+"/"+len+") — 다시 내려받아 주세요");
+  return JSON.parse(json);
+}
 $("importBtn").onclick=()=>{ if(ROLE.isAdmin()){ $("importFile").value=""; $("importFile").click(); } };
 $("importFile").onchange=async()=>{
   const f=$("importFile").files&&$("importFile").files[0]; if(!f) return;
   const out=$("repairOut"), b=$("importBtn");
-  let X=null;
-  try{ X=JSON.parse(await f.text()); }catch(_){ X=null; }
-  if(!X||X.v!==1||!X.parts){ out.className="fixout on"; out.textContent="내보내기 파일이 아닙니다. exportForSupabase 로 만든 .json 파일을 골라 주세요."; return; }
+  let X=null, why="";
+  try{ X=readExport(await f.text()); }catch(e){ X=null; why=String(e&&e.message||e); }
+  if(!X||X.v!==1||!X.parts){ out.className="fixout on"; out.textContent="내보내기 파일이 아닙니다. 'EXPORT_수파베이스' 탭을 .csv 로 내려받은 파일을 골라 주세요."+(why?"\n("+why+")":""); return; }
   const P=X.parts, mem=P.members||[];
   if(mem.length&&!mem.some(a=>String(a.em||"").toLowerCase()===ME.email.toLowerCase()&&a.role==="관리자")){
     out.className="fixout on"; out.textContent="파일의 명단에 지금 계정("+ME.email+")이 관리자로 없습니다.\n가져오면 접속이 막히므로 멈췄습니다. 예전 시트 명단에 이 계정을 관리자로 넣고 다시 내보내 주세요."; return; }
